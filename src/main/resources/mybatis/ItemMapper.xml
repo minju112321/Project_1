@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.trioshop.repository.mybatis.ItemMapper">
+    <!--  모든 아이템 검색  -->
+    <select id="findAllItem" resultType="ItemInfoByUser">
+        SELECT TI.item_code itemCode,
+               TC.category_name categoryName,
+               TF.factory_name factoryName,
+               TI.item_name itemName,
+               TS.stock_qty stockQty,
+               TI.item_price itemPrice,
+               TI.item_src itemSrc,
+               TI.item_color itemColor,
+               TI.item_size itemSize
+        FROM TRIO_ITEMS TI, TRIO_STOCK TS, TRIO_CATEGORY TC, TRIO_FACTORY TF
+        WHERE TI.item_code=TS.item_code
+          AND TI.category_code=TC.category_code
+          AND TI.factory_code=TF.factory_code
+    </select>
+    <!--  itemName, category 으로 아이템 검색  -->
+    <select id="searchItems" resultType="ItemInfoByUser">
+        SELECT
+        TI.item_code AS itemCode,
+        TC.category_name AS categoryName,
+        TF.factory_name AS factoryName,
+        TI.item_name AS itemName,
+        TS.stock_qty AS stockQty,
+        TI.item_price AS itemPrice,
+        TI.item_src AS itemSrc,
+        TI.item_color itemColor,
+        TI.item_size itemSize
+        FROM TRIO_ITEMS TI
+        JOIN TRIO_STOCK TS ON TI.item_code = TS.item_code
+        JOIN TRIO_CATEGORY TC ON TI.category_code = TC.category_code
+        JOIN TRIO_FACTORY TF ON TI.factory_code = TF.factory_code
+        WHERE 1=1
+        <if test="itemName != null and itemName != ''">
+            AND TI.item_name LIKE CONCAT('%', #{itemName}, '%')
+        </if>
+        <if test="category != null and category != ''">
+            AND TC.category_name = #{category}
+        </if>
+    </select>
+    <!--  카테코리 선택을 위한 목록 검색  -->
+    <select id="categoryList" resultType="CategoryEntity">
+        SELECT category_code,
+               category_name
+        FROM TRIO_CATEGORY
+    </select>
+    <!--  itemCode 로 아이템 정보 반환 -->
+    <select id="itemInfoByCode" resultType="ItemInfoByUser">
+        SELECT
+        TI.item_code AS itemCode,
+        TC.category_name AS categoryName,
+        TF.factory_name AS factoryName,
+        TI.item_name AS itemName,
+        TS.stock_qty AS stockQty,
+        TI.item_price AS itemPrice,
+        TI.item_src AS itemSrc,
+        TI.item_color AS itemColor,
+        TI.item_size AS itemSize
+        FROM
+        TRIO_ITEMS TI
+        JOIN
+        TRIO_STOCK TS ON TI.item_code = TS.item_code
+        JOIN
+        TRIO_CATEGORY TC ON TI.category_code = TC.category_code
+        JOIN
+        TRIO_FACTORY TF ON TI.factory_code = TF.factory_code
+        WHERE TI.item_code = #{itemCode}
+    </select>
+    <!--  itemCodes 으로 아이템 정보 반환 -->
+    <select id="itemInfoByCodes" resultType="ItemInfoByUser">
+        SELECT
+        TI.item_code AS itemCode,
+        TC.category_name AS categoryName,
+        TF.factory_name AS factoryName,
+        TI.item_name AS itemName,
+        TS.stock_qty AS stockQty,
+        TI.item_price AS itemPrice,
+        TI.item_src AS itemSrc,
+        TI.item_color AS itemColor,
+        TI.item_size AS itemSize
+        FROM
+        TRIO_ITEMS TI
+        JOIN
+        TRIO_STOCK TS ON TI.item_code = TS.item_code
+        JOIN
+        TRIO_CATEGORY TC ON TI.category_code = TC.category_code
+        JOIN
+        TRIO_FACTORY TF ON TI.factory_code = TF.factory_code
+        WHERE TI.item_code IN
+        <foreach item="code" collection="itemCodes" open="(" separator="," close=")">
+            #{code}
+        </foreach>
+    </select>
+
+    <!--  cart item list -->
+    <select id="cartItemList" resultType="ItemInfoByCart">
+        SELECT
+            c.cart_code AS cartCode,
+            c.user_code AS userCode,
+            c.cartitem_qty AS cartItemQty,
+            i.item_code AS itemCode,
+            i.item_name AS itemName,
+            i.item_price AS itemPrice,
+            i.item_src AS itemSrc,
+            i.item_color AS itemColor,
+            i.item_size AS itemSize,
+            s.stock_qty AS stockQty,
+            tc.category_name AS categoryName
+        FROM
+            TRIO_CART c
+                JOIN TRIO_ITEMS i ON c.item_code = i.item_code
+                JOIN TRIO_STOCK s ON i.item_code = s.item_code
+                JOIN TRIO_CATEGORY tc ON i.category_code = tc.category_code
+        WHERE c.user_code = #{userCode}
+    </select>
+
+    <!--  order list -->
+    <select id="orderList" resultType="OrderListModel">
+        SELECT o.order_code,
+               o.order_date,
+               os.status_name,
+               GROUP_CONCAT(i.item_name SEPARATOR ', ') AS item_names,
+               GROUP_CONCAT(oi.order_qty SEPARATOR ', ') AS order_qtys,
+               GROUP_CONCAT(i.item_price SEPARATOR ', ') AS item_prices,
+               oi.item_code,
+               i.item_name,
+               oi.order_qty,
+               i.item_price
+        FROM TRIO_ORDERS o
+                 JOIN TRIO_ORDER_STATUS os ON o.status_code = os.status_code
+                 JOIN TRIO_ORDER_ITEMS oi ON o.order_code = oi.order_code
+                 JOIN TRIO_ITEMS i ON oi.item_code = i.item_code
+        WHERE o.user_code = #{userCode}
+        GROUP BY o.order_code, o.user_code, o.order_date, os.status_name
+        ORDER BY o.order_date DESC, o.user_code ASC
+    </select>
+    <select id="orderListTEST" resultType="OrderListModel">
+        SELECT o.order_code,
+        o.user_code,
+        o.order_date,
+        os.status_name,
+        GROUP_CONCAT(i.item_name SEPARATOR ', ') AS item_names,
+        GROUP_CONCAT(oi.order_qty SEPARATOR ', ') AS order_qtys,
+        GROUP_CONCAT(i.item_price SEPARATOR ', ') AS item_prices,
+        o.status_code,
+        o.delivery_code,
+        o.waybill_num
+        FROM TRIO_ORDERS o
+        JOIN TRIO_ORDER_STATUS os ON o.status_code = os.status_code
+        JOIN TRIO_ORDER_ITEMS oi ON o.order_code = oi.order_code
+        JOIN TRIO_ITEMS i ON oi.item_code = i.item_code
+        <where>
+            <if test="userCode != null and userCode != ''">
+                AND o.user_code = #{userCode}
+            </if>
+            <if test="statusCode != null and statusCode != ''">
+                AND o.status_code = #{statusCode}
+            </if>
+        </where>
+        GROUP BY o.order_code, o.user_code, o.order_date, os.status_name
+        ORDER BY o.order_date DESC, o.user_code ASC
+    </select>
+    <!--  insert TRIO_ORDERS  -->
+    <insert id="insertOrders">
+        INSERT INTO TRIO_ORDERS (order_code, user_code, status_code, order_receiver, order_destination, order_date, order_tel)
+        VALUES (#{orderCode}, #{userCode}, #{statusCode}, #{orderReceiver}, #{orderDestination}, #{orderDate}, #{orderTel})
+    </insert>
+
+    <!--  insert TRIO_ORDER_ITEMS  -->
+    <insert id="insertOrderItems">
+        INSERT INTO TRIO_ORDER_ITEMS (order_code, item_code, order_qty)
+        VALUES (#{orderCode}, #{itemCode}, #{orderQty})
+    </insert>
+
+    <!--  기존수량-orderQty 를 업데이트  -->
+    <update id="updateStockQty">
+        UPDATE TRIO_STOCK
+        SET stock_qty = stock_qty - #{orderQty}
+        WHERE item_code = #{itemCode}
+    </update>
+
+    <!-- userCode로 장바구니를 특정해 구매한 물품을 itemCode로 제거   -->
+    <delete id="deleteItemsFromCart">
+        DELETE FROM TRIO_CART
+        WHERE user_code = #{userCode}
+        AND item_code IN
+        <foreach item="itemCode" collection="itemCodeList" open="(" separator="," close=")">
+            #{itemCode}
+        </foreach>
+    </delete>
+
+    <insert id="insertCartItem">
+        INSERT INTO TRIO_CART (user_code, item_code, cartitem_qty)
+        VALUES (#{userCode}, #{itemCode}, #{cartItemQty})
+    </insert>
+
+    <delete id="deleteCartItem">
+        DELETE FROM TRIO_CART
+        WHERE user_code = #{userCode} AND item_code = #{itemCode}
+    </delete>
+
+    <!-- 존재하는지 확인하는 SELECT 쿼리 -->
+    <select id="selectCartItem" resultType="int">
+        SELECT COUNT(*)
+        FROM TRIO_CART
+        WHERE user_code = #{userCode} AND item_code = #{itemCode}
+    </select>
+
+    <!-- 존재할 경우 업데이트를 수행하는 UPDATE 쿼리 -->
+    <update id="updateCartItem">
+        UPDATE TRIO_CART
+        SET cartitem_qty = cartitem_qty + #{cartItemQty}
+        WHERE user_code = #{userCode} AND item_code = #{itemCode}
+    </update>
+    <!--  -->
+    <select id="itemDetailNameSearch" resultType="ItemDetailSearch">
+        SELECT
+            item_code AS itemCode,
+            item_name AS itemName,
+            item_color AS itemColor,
+            item_size AS itemSize
+        FROM TRIO_ITEMS
+        WHERE item_name = #{itemName}
+        ORDER BY item_color, item_size
+    </select>
+    <!-- UserAddressInfo 조회하여 UserAddressInfo로 (추후 위치변경해야함)-->
+    <select id="selectUserAddressInfo" resultType="UserAddressInfo">
+        SELECT
+            user_name AS userName,
+            user_address AS userAddress,
+            user_tel AS userTel
+        FROM
+            TRIO_USERS_INFO
+        WHERE
+            user_code = #{userCode}
+    </select>
+</mapper>
